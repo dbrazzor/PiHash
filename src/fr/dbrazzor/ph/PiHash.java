@@ -1,7 +1,12 @@
-package com.dbrazzor.ph;
+package fr.dbrazzor.ph;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+import static fr.dbrazzor.ph.Hash.*;
 
 /**
  * Created by Thomas GRIVET (aka dbrazzor) on 02/05/2016.
@@ -30,16 +35,78 @@ public class PiHash {
 
     private static Thread thread = null;
 
+    private static MySQL mySQL;
+
     public static void main(String[] args) throws InterruptedException, IOException {
 
-        if (args.length < 1) return;
+        if (args.length < 1) {
+
+            System.out.println("You must specify at least one hash function :\n");
+            for (HashType hashType : HashType.values()) {
+                System.out.println("- " + hashType.getName());
+            }
+            return;
+
+        }
+
+
+        boolean pass = false;
+
+        for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("all")) {
+                for (HashType hashType : HashType.values()) HashType.addHash(hashType);
+                break;
+            }
+
+            HashType hashType = HashType.getHash(args[i]);
+
+            if (hashType == null) {
+                System.out.println("The hash funtion \"" + args[i] + "\" doesn't exists." + (i == args.length - 1 && !pass ? " Exiting." : ""));
+                continue;
+            }
+
+            pass = true;
+            HashType.addHash(hashType);
+
+        }
+
+        if (MySQL.canConnect("localhost", 3306, "root", "mysqlpassword", "Hashed_Passwords")) {
+
+            mySQL = new MySQL("localhost", 3306, "root", "mysqlpassword", "Hashed_Passwords");
+            System.out.println("Connected to mysql server!");
+            mySQL.createTable();
+
+        }
+
+        HashType[] hashTypes = HashType.getHashs();
+
+        String s = "Starting password hashing with functions : ";
+        for (int i = 0; i < hashTypes.length; i++)
+            s += hashTypes[i].getName() + (i != hashTypes.length - 1 ? ", " : ".");
+
+        System.out.println(s);
+
 
         string = "a";
         toChange = 0;
         charToChange = keys[0];
 
-        printWriter = new PrintWriter("/media/Hashed/MD5/" + t + ".txt");
-        printWriter.println("Hashed Passwords - MD5 - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : Hash\n");
+        File file = new File("/home/pi/Hash/" + t + ".txt");
+
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+            file.createNewFile();
+        }
+
+        printWriter = new PrintWriter("/home/pi/Hash/" + t + ".txt");
+        final String[] print = {"Hashed Passwords - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : "};
+
+        for (int i = 0; i < hashTypes.length; i++) {
+            print[0] += hashTypes[i].getName() + (i != hashTypes.length - 1 ? " : " : "\n");
+        }
+
+        printWriter.println(print[0]);
 
         new Thread(() -> {
 
@@ -71,19 +138,57 @@ public class PiHash {
                     try {
                         t++;
                         printWriter.close();
-                        printWriter = new PrintWriter("/media/Hashed/MD5/" + t + ".txt");
-                        printWriter.println("Hashed Passwords - MD5 - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : Hash\n");
+                        printWriter = new PrintWriter("/home/pi/Hash/" + t + ".txt");
+                        print[0] = "Hashed Passwords - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : ";
+
+                        for (int i = 0; i < hashTypes.length; i++) {
+                            print[0] += hashTypes[i].getName() + (i != hashTypes.length - 1 ? " : " : "\n");
+                        }
+
+                        printWriter.println(print[0]);
+
                         j = 0;
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
 
-                String md5 = md5(string);
-                String data = string + " : " + u + " : " + md5;
-                System.out.println(data);
+                String hashs = "";
+                List<String> hashList = new ArrayList<String>();
 
+                for (int i = 0; i < hashTypes.length; i++) {
+
+                    String hash = "";
+
+                    switch (hashTypes[i]) {
+
+                        case BCRYPT:
+                            hash = BCrypt.hashpw(string, BCrypt.gensalt());
+                            break;
+                        case MD5:
+                            hash = md5(string);
+                            break;
+                        case CRC32:
+                            hash = "" + CRC32(string);
+                            break;
+                        case SHA1:
+                            hash = SHA1(string);
+                            break;
+                        case SHA256:
+                            hash = SHA256(string);
+                            break;
+
+                    }
+
+                    hashList.add(hash);
+                    hashs += hash + (i != hashTypes.length - 1 ? " : " : "");
+
+                }
+
+                String data = string + " : " + u + " : " + hashs;
+                System.out.println(data);
                 printWriter.println(data);
+                mySQL.addHash(string, hashList.toArray(new String[hashList.size()]));
 
                 haveFound = false;
                 int position;
@@ -167,20 +272,6 @@ public class PiHash {
         }
         return sb.toString();
 
-    }
-
-    private static String md5(String md5) {
-        try {
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
-            byte[] array = md.digest(md5.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte anArray : array) {
-                sb.append(Integer.toHexString((anArray & 0xFF) | 0x100).substring(1, 3));
-            }
-            return sb.toString();
-        } catch (java.security.NoSuchAlgorithmException ignored) {
-        }
-        return null;
     }
 
 }
