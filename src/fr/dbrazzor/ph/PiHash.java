@@ -27,10 +27,12 @@ public class PiHash {
 
     private static boolean canWrite = true;
 
+    private static String mysql_Password;
+
     private static char[] keys = {
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
             'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-            ' ', '!', '\"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~',
+            ' ', '!', '\"', '#', '$', '%', '&', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~',
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
 
     private static Thread thread = null;
@@ -49,10 +51,17 @@ public class PiHash {
 
         }
 
-
         boolean pass = false;
 
+        if (args[0].equalsIgnoreCase("mysql")) {
+
+            mysql_Password = new String(System.console().readPassword("Please enter your MySQL password: "));
+
+        }
+
         for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("mysql")) continue;
 
             if (args[i].equalsIgnoreCase("all")) {
                 for (HashType hashType : HashType.values()) HashType.addHash(hashType);
@@ -71,11 +80,22 @@ public class PiHash {
 
         }
 
-        if (MySQL.canConnect("localhost", 3306, "root", "mysqlpassword", "Hashed_Passwords")) {
+        if (MySQL.canConnect("localhost", 3306, "root", mysql_Password, "Hashed_Passwords")) {
 
-            mySQL = new MySQL("localhost", 3306, "root", "mysqlpassword", "Hashed_Passwords");
+            mySQL = new MySQL("localhost", 3306, "root", mysql_Password, "Hashed_Passwords");
             System.out.println("Connected to mysql server!");
             mySQL.createTable();
+
+        } else {
+
+            System.out.println("Could not connect to MySQL server!");
+
+        }
+
+        for (int i = 3; i > 0; i--) {
+
+            System.out.println("Starting in " + i + " second" + (i > 1 ? "s" : ""));
+            Thread.sleep(1000);
 
         }
 
@@ -92,7 +112,15 @@ public class PiHash {
         toChange = 0;
         charToChange = keys[0];
 
-        File file = new File("/home/pi/Hash/" + t + ".txt");
+        File file;
+        String[] print = new String[]{"Hashed Passwords - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : "};
+
+        for (int i = 0; i < hashTypes.length; i++) {
+            print[0] += hashTypes[i].getName() + (i != hashTypes.length - 1 ? " : " : "\n");
+        }
+
+        file = new File("/home/pi/Hash/" + t + ".txt");
+
 
         if (!file.exists()) {
             file.getParentFile().mkdirs();
@@ -100,11 +128,6 @@ public class PiHash {
         }
 
         printWriter = new PrintWriter("/home/pi/Hash/" + t + ".txt");
-        final String[] print = {"Hashed Passwords - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : "};
-
-        for (int i = 0; i < hashTypes.length; i++) {
-            print[0] += hashTypes[i].getName() + (i != hashTypes.length - 1 ? " : " : "\n");
-        }
 
         printWriter.println(print[0]);
 
@@ -188,7 +211,7 @@ public class PiHash {
                 String data = string + " : " + u + " : " + hashs;
                 System.out.println(data);
                 printWriter.println(data);
-                mySQL.addHash(string, hashList.toArray(new String[hashList.size()]));
+                if (mySQL != null) mySQL.addHash(string, hashList.toArray(new String[hashList.size()]));
 
                 haveFound = false;
                 int position;
