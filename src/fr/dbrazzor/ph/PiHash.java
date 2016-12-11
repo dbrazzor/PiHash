@@ -1,9 +1,12 @@
 package fr.dbrazzor.ph;
 
+import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static fr.dbrazzor.ph.Hash.*;
@@ -38,30 +41,45 @@ public class PiHash {
     private static Thread thread = null;
 
     private static MySQL mySQL;
+    private static boolean use_mysql, use_ui; //--> UI doesn't currently work.
+
+    private static JFrame frame;
 
     public static void main(String[] args) throws InterruptedException, IOException {
 
+        ArrayList<String> argsList = new ArrayList<String>(Arrays.asList(args));
+
         if (args.length < 1) {
 
-            System.out.println("You must specify at least one hash function :\n");
+            System.out.println("Thanks for using dbrazzor's hashing algorithm, you will be able to generate salted passwords based on the hashing method(s) you want to use.\n\n" +
+                    "Here are the currently available hash functions :\n");
+
             for (HashType hashType : HashType.values()) {
                 System.out.println("- " + hashType.getName());
             }
+
+            System.out.println("\nIf you want to connect and store passwords in a mysql database, use the argument \"use-mysql\", you will be asked for your database details the first time, those will then be stored in an external file called PiHash-mysql.txt. You password won't be stored.\n\n" +
+                    "If you need a graphical interface, use the argument \"use-ui\".");
+
             return;
 
         }
 
         boolean pass = false;
 
-        if (args[0].equalsIgnoreCase("mysql")) {
+        if (argsList.contains("use-mysql")) {
 
+            use_mysql = true;
             mysql_Password = new String(System.console().readPassword("Please enter your MySQL password: "));
 
         }
 
+        if (argsList.contains("use-ui")) use_ui = true;
+
         for (int i = 0; i < args.length; i++) {
 
-            if (args[i].equalsIgnoreCase("mysql")) continue;
+            if (args[i].equalsIgnoreCase("use-ui")) break;
+            if (args[i].equalsIgnoreCase("use-mysql")) continue;
 
             if (args[i].equalsIgnoreCase("all")) {
                 for (HashType hashType : HashType.values()) HashType.addHash(hashType);
@@ -72,7 +90,7 @@ public class PiHash {
 
             if (hashType == null) {
                 System.out.println("The hash funtion \"" + args[i] + "\" doesn't exists." + (i == args.length - 1 && !pass ? " Exiting." : ""));
-                continue;
+                System.exit(0);
             }
 
             pass = true;
@@ -80,21 +98,34 @@ public class PiHash {
 
         }
 
-        if (MySQL.canConnect("localhost", 3306, "root", mysql_Password, "Hashed_Passwords")) {
+        if (use_mysql) {
 
-            mySQL = new MySQL("localhost", 3306, "root", mysql_Password, "Hashed_Passwords");
-            System.out.println("Connected to mysql server!");
-            mySQL.createTable();
+            try {
 
-        } else {
+                mySQL = new MySQL("localhost", 3306, "root", mysql_Password, "Hashed_Passwords");
+                System.out.println("Connected to mysql server!");
+                mySQL.createTable();
 
-            System.out.println("Could not connect to MySQL server!");
+            } catch (ClassNotFoundException | SQLException e) {
+
+                System.out.println("Could not connect to MySQL server. Exiting.");
+
+            }
+
+        }
+
+        if (use_ui) {
+
+            frame = new JFrame("PiHash");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(300, 400);
+            frame.setVisible(true);
 
         }
 
         for (int i = 3; i > 0; i--) {
 
-            System.out.println("Starting in " + i + " second" + (i > 1 ? "s" : ""));
+            System.out.print("Starting in " + i + " second" + (i > 1 ? "s" : " ") + "\r");
             Thread.sleep(1000);
 
         }

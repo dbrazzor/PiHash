@@ -9,25 +9,11 @@ public class MySQL {
 
     private Connection connection;
 
-    MySQL(String ip, int port, String userName, String password, String database) {
+    MySQL(String ip, int port, String userName, String password, String database) throws ClassNotFoundException, SQLException {
 
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            connection = DriverManager.getConnection("jdbc:mysql://" + ip + ":" + port + "/" + database + "?user=" + userName + "&password=" + password + "&useSSL=false");
-        } catch (ClassNotFoundException | SQLException ignored) {
-        }
+        Class.forName("com.mysql.jdbc.Driver");
+        connection = DriverManager.getConnection("jdbc:mysql://" + ip + ":" + port + "/" + database + "?user=" + userName + "&password=" + password + "&useSSL=false");
 
-    }
-
-    static boolean canConnect(String ip, int port, String userName, String password, String database) {
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            Connection connection = DriverManager.getConnection("jdbc:mysql://" + ip + ":" + port + "/" + database + "?user=" + userName + "&password=" + password + "&useSSL=false");
-        } catch (ClassNotFoundException | SQLException ignored) {
-            return false;
-        }
-
-        return true;
     }
 
     boolean createTable() {
