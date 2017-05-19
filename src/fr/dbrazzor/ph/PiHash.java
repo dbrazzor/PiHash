@@ -1,6 +1,5 @@
 package fr.dbrazzor.ph;
 
-import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -41,13 +40,11 @@ public class PiHash {
     private static Thread thread = null;
 
     private static MySQL mySQL;
-    private static boolean use_mysql, use_ui; //--> UI doesn't currently work.
-
-    private static JFrame frame;
+    private static boolean use_mysql;
 
     public static void main(String[] args) throws InterruptedException, IOException {
 
-        ArrayList<String> argsList = new ArrayList<String>(Arrays.asList(args));
+        ArrayList<String> argsList = new ArrayList<>(Arrays.asList(args));
 
         if (args.length < 1) {
 
@@ -73,8 +70,6 @@ public class PiHash {
             mysql_Password = new String(System.console().readPassword("Please enter your MySQL password: "));
 
         }
-
-        if (argsList.contains("use-ui")) use_ui = true;
 
         for (int i = 0; i < args.length; i++) {
 
@@ -104,22 +99,17 @@ public class PiHash {
 
                 mySQL = new MySQL("localhost", 3306, "root", mysql_Password, "Hashed_Passwords");
                 System.out.println("Connected to mysql server!");
-                mySQL.createTable();
+                if (!mySQL.tableExists()) {
+                    mySQL.createTable();
+                }
+
+                u = mySQL.getLastId();
 
             } catch (ClassNotFoundException | SQLException e) {
 
                 System.out.println("Could not connect to MySQL server. Exiting.");
 
             }
-
-        }
-
-        if (use_ui) {
-
-            frame = new JFrame("PiHash");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(300, 400);
-            frame.setVisible(true);
 
         }
 
@@ -138,33 +128,32 @@ public class PiHash {
 
         System.out.println(s);
 
-
-        string = "a";
+        string = use_mysql ? mySQL.getLastPass() : "a";
         toChange = 0;
         charToChange = keys[0];
 
         File file;
+
         String[] print = new String[]{"Hashed Passwords - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : "};
 
         for (int i = 0; i < hashTypes.length; i++) {
             print[0] += hashTypes[i].getName() + (i != hashTypes.length - 1 ? " : " : "\n");
         }
 
-        file = new File("/home/pi/Hash/" + t + ".txt");
+        file = new File("/home/thomas/Hash/" + t + ".txt");
 
-
-        if (!file.exists()) {
+        if (!file.exists() && !use_mysql) {
             file.getParentFile().mkdirs();
             file.createNewFile();
         }
 
-        printWriter = new PrintWriter("/home/pi/Hash/" + t + ".txt");
+        printWriter = new PrintWriter("/home/thomas/Hash/" + t + ".txt");
 
         printWriter.println(print[0]);
 
         new Thread(() -> {
 
-            while (true) {
+            for (; ; ) {
                 System.out.println(string);
                 if (thread != null) {
                     if (!thread.isAlive()) {
@@ -183,16 +172,50 @@ public class PiHash {
 
         thread = new Thread(() -> {
 
-            while (true) {
+            for (; ; ) {
 
                 if (u < 0 || !canWrite) continue;
 
-                if (j >= 100000) {
+                if (j >= 100000 && !use_mysql) {
 
                     try {
+
+                        /*System.out.println("[!] Starting paste...");
+
+                        PasteBuilder pasteBuilder = factory.createPaste();
+
+                        pasteBuilder.setTitle("Hashed Passwords - by dbrazzor - Page " + t + " [" + (u - 10000) + " ; " + u + "]");
+
+                        String header = "Hashed Passwords - by dbrazzor - Page " + t + " [" + (u - 10000) + " ; " + u + "]\n\nPassword : Combinations : ";
+
+                        for (int i = 0; i < hashTypes.length; i++) {
+                            header += hashTypes[i].getName() + (i != hashTypes.length - 1 ? " : " : "\n");
+                        }
+
+                        pasteBuilder.setRaw(header+"\n\n"+pasteStr);
+
+                        pasteBuilder.setMachineFriendlyLanguage("text");
+
+                        pasteBuilder.setVisiblity(PasteVisiblity.Public);
+
+                        pasteBuilder.setExpire(PasteExpire.Never);
+
+                        Paste paste = pasteBuilder.build();
+
+                        Response<String> postResult = pastebin.post(paste, userKey);
+
+                        if (postResult.hasError()) {
+                            System.out.println("Pastebin error: " + postResult.getError());
+                            return;
+                        }
+
+                        System.out.println("Paste created! Url: " + postResult.get());
+
+                        pasteStr = "";*/
+
                         t++;
                         printWriter.close();
-                        printWriter = new PrintWriter("/home/pi/Hash/" + t + ".txt");
+                        printWriter = new PrintWriter("/home/thomas/Hash/" + t + ".txt");
                         print[0] = "Hashed Passwords - by dbrazzor - Page " + t + " [" + u + " ; " + (u + 100000) + "]\n\nPassword : Combinations : ";
 
                         for (int i = 0; i < hashTypes.length; i++) {
@@ -208,7 +231,7 @@ public class PiHash {
                 }
 
                 String hashs = "";
-                List<String> hashList = new ArrayList<String>();
+                List<String> hashList = new ArrayList<>();
 
                 for (int i = 0; i < hashTypes.length; i++) {
 
@@ -241,7 +264,8 @@ public class PiHash {
 
                 String data = string + " : " + u + " : " + hashs;
                 System.out.println(data);
-                printWriter.println(data);
+                //pasteStr += "\n"+data;
+                if (!use_mysql) printWriter.println(data);
                 if (mySQL != null) mySQL.addHash(string, hashList.toArray(new String[hashList.size()]));
 
                 haveFound = false;
